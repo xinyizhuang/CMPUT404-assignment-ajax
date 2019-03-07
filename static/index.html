@@ -6,7 +6,7 @@
     <meta content='width=device-width; height=device-height; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;' name='viewport' />
     <meta name="viewport" content="width=device-width" />
     <meta name="license" content="
-        Copyright 2013 Abram Hindle
+        Copyright 2013 Abram Hindle, Xinyi Zhuang
         
         Licensed under the Apache License, Version 2.0 (the "License");
         you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@ var context = canvas.getContext("2d");
 var W = canvas.width  = window.innerWidth-6;
 var H = canvas.height = window.innerHeight-50;
 
-
 function sendJSONXMLHTTPRequest(url, objects, callback) {
     var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function () {
@@ -39,7 +38,12 @@ function sendJSONXMLHTTPRequest(url, objects, callback) {
             try {
                 if (xhr.status==200) {
                     //XXX: parse some JSON from the request!
+                    var v = JSON.parse(xhr.responseText);
                     //XXX: Pass the data to the callback!
+                    if (callback) {
+			callback(v);
+		    
+                    }
                 }
             } 
             catch(e) {
@@ -50,6 +54,11 @@ function sendJSONXMLHTTPRequest(url, objects, callback) {
     //XXX: POST to a URL
     //XXX: set the mimetype and the accept headers!
     // Remember to use application/json !
+    xhr.open("POST", url);
+    xhr.setRequestHeader("Content-Type", 'application/json');
+    xhr.setRequestHeader("Accept", 'application/json');
+    xhr.send(JSON.stringify(objects));
+
 }
 
 
@@ -65,7 +74,9 @@ function drawCircle(context,entity) {
         //moveTo(x,y);
         fillStyle = entity["colour"];
         strokeStyle = fillStyle;
-        arc(x, y, (entity["radius"])?entity["radius"]:50, 0, 2.0 * Math.PI, false);  
+        arc(x, y, (entity["radius"])?entity["radius"]:50, 0, 2.0 * Math.PI, false);
+	globalAlpha=0.5;
+        fill();
         stroke();                                
     }
 }
@@ -138,7 +149,8 @@ function addEntity(entity, data) {
     world[entity] = data;
     drawNextFrame(); // (but should we?)
     //XXX: Send a XHTML Request that updates the entity you just  modified!
-
+    url = document.location.origin + "/entity/" + encodeURIComponent(entity);
+    sendJSONXMLHTTPRequest(url, data, null);
 }
 
 var counter = 0;
@@ -244,24 +256,37 @@ mouse = (function() {
     return self;
 })();
 
+
 // Add the application specific mouse listeners!
 //XXX: TODO Make these prettier!
 mouse.mousedowners.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
+    var color = getRandomColor();
+    addEntityWithoutName({'x':x,'y':y,'colour': getRandomColor(), 'radius':getRandomRadius()});
+
 });
 
 mouse.mouseuppers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'red'});
+    var color = getRandomColor();
+    addEntityWithoutName({'x':x,'y':y,'colour': getRandomColor(), 'radius':getRandomRadius()});
+
 });
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
-                          'radius':10});
+    var color = getRandomColor();
+    addEntityWithoutName({'x':x,'y':y,'colour': getRandomColor(),
+                          'radius':getRandomRadius()});
 });
-
 
 function update() {
     //XXX: TODO Get the world from the webservice using a XMLHTTPRequest
+    url = document.location.origin + "/world";
+    callback = function(new_world) {
+            world = new_world;
+            drawNextFrame();
+        };
+
+    sendJSONXMLHTTPRequest(url, null, callback);
+
     drawFrame();
 }
 
@@ -269,7 +294,31 @@ function update() {
 setInterval( update, 1000/30.0);
 
 
+function clean(){
+    url = document.location.origin + "/clear";
+    sendJSONXMLHTTPRequest(url, null, null);
+}
+
+function getRandomColor() {
+    var letters = '0123456789ABCDEF';
+    var color = '#';
+    for (var i = 0; i < 6; i++) {
+	color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+}
+
+function getRandomRadius() {
+    var min = 5;
+    var max = 30;
+    var random = Math.floor(Math.random() * (+max - +min)) + +min;
+    return random
+    
+}
 
     </script>
+
+
+    <button style="position: absolute; width: 50%; bottom: 30px; left: 25%" onclick="clean()" >Clear</button>
 </body>
 </html>
